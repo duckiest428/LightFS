@@ -1,65 +1,70 @@
 import SwiftUI
+import AppKit
 
 @main
 struct LightFSApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        WindowGroup {
+        // A single-window scene: GeoFS is one session, so File > New Window is pointless.
+        Window("Light FS", id: "main") {
             ContentView()
                 .frame(minWidth: 1024, minHeight: 768)
+                .background(WindowConfigurator())
         }
         .windowToolbarStyle(.unifiedCompact)
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+            CommandGroup(after: .toolbar) {
+                Button("Reload GeoFS") {
+                    NotificationCenter.default.post(name: .reloadGeoFS, object: nil)
+                }
+                .keyboardShortcut("r", modifiers: .command)
+
+                Button("Reset GeoFS") {
+                    NotificationCenter.default.post(name: .resetGeoFS, object: nil)
+                }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+
+                Button("Clear Cache") {
+                    NotificationCenter.default.post(name: .clearGeoFSCache, object: nil)
+                }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+            }
+        }
     }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Access the main window to further customize the frameless experience
-        if let window = NSApplication.shared.windows.first {
+        DiscordRPC.shared.start()
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        DiscordRPC.shared.stop()
+    }
+}
+
+// Styles the hosting NSWindow once SwiftUI has actually created it.
+// (NSApplication.windows is often still empty in applicationDidFinishLaunching.)
+private struct WindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
             window.title = "Light FS"
             window.titlebarAppearsTransparent = true
-            window.isMovableByWindowBackground = true
             window.backgroundColor = .black
-
-            // Remove the standard title bar completely for maximum immersion
             window.styleMask.insert(.fullSizeContentView)
-
-            // Handle Fullscreen Cmd+F
-            setupGlobalShortcuts()
+            window.collectionBehavior.insert(.fullScreenPrimary)
         }
+        return view
     }
 
-    private func setupGlobalShortcuts() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            let flags = event.modifierFlags
-            let isCmd = flags.contains(.command)
-            let isShift = flags.contains(.shift)
-
-            if isCmd {
-                switch event.charactersIgnoringModifiers {
-                case "r", "R":
-                    if isShift {
-                        // Cmd + Shift + R: Reset
-                        NotificationCenter.default.post(name: .resetGeoFS, object: nil)
-                        return nil // Swallow event
-                    } else {
-                        // Cmd + R: Reload
-                        NotificationCenter.default.post(name: .reloadGeoFS, object: nil)
-                        return nil // Swallow event
-                    }
-                case "c", "C":
-                    if isShift {
-                        // Cmd + Shift + C: Clear Cache
-                        NotificationCenter.default.post(name: .clearGeoFSCache, object: nil)
-                        return nil // Swallow event
-                    }
-                default:
-                    break
-                }
-            }
-            return event
-        }
-    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

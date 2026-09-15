@@ -14,7 +14,7 @@ struct ContentView: View {
         ZStack {
             // The Simulation
             GeoFSWebView(fps: $fps)
-                .edgesIgnoringSafeArea(.all)
+                .ignoresSafeArea()
                 .background(Color.black)
 
             // Floating HUD
@@ -106,6 +106,8 @@ struct HUDActionButton: View {
     let label: String
     let action: () -> Void
 
+    @State private var isHovering = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
@@ -117,19 +119,12 @@ struct HUDActionButton: View {
             .foregroundColor(.white.opacity(0.9))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color.white.opacity(0.1))
+            .background(Color.white.opacity(isHovering ? 0.2 : 0.1))
             .cornerRadius(6)
         }
         .buttonStyle(.plain)
-        .hoverEffect()
-    }
-}
-
-extension View {
-    func hoverEffect() -> some View {
-        self.onHover { hovering in
-            // Visual feedback
-        }
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.15), value: isHovering)
     }
 }
 
